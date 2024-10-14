@@ -1,25 +1,37 @@
-FROM node:20-alpine AS build
+FROM node:20-slim AS build
 
-RUN apk add --no-cache make g++ python3 libpcap-dev 
+# Use apt-get instead of apk to install the necessary packages
+RUN apt-get update && apt-get install -y \
+    python3 \
+    make \
+    g++ \
+    libpcap-dev && \
+    rm -rf /var/lib/apt/lists/*
 
 WORKDIR /home/node
 
+# Copy package files and install dependencies
 COPY package.json pnpm-lock.yaml ./
-RUN npm install -g pnpm && pnpm install --frozen-lockfile
+RUN npm install -g pnpm && pnpm install
 
+# Copy the rest of the source code
 COPY . .
 
 RUN pnpm run build
 
-FROM node:20-alpine AS production
+# Production stage
+FROM node:20-slim AS production
 
-RUN apk add --no-cache python3 make g++ libpcap-dev
+# Install production dependencies using apt-get
+RUN apt-get update && apt-get install -y \
+    python3 \
+    make \
+    g++ \
+    libpcap-dev && \
+    rm -rf /var/lib/apt/lists/*
 
 WORKDIR /home/node
 
-COPY package.json pnpm-lock.yaml ./
-RUN npm install -g pnpm && pnpm install --frozen-lockfile --prod
-
-COPY --from=build /home/node/dist ./dist
+COPY --from=build /home/node .
 
 CMD ["node", "./dist/src/index.js"]
