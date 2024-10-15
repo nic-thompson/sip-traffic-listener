@@ -1,17 +1,19 @@
-import pcap from "pcap";
+import pcap from 'pcap';
 
 export class PacketCaptureModule {
-    private session: pcap.PcapSession;
+    private session: any;
+    private networkInterface: string;
+    private filter: string;
 
-    constructor(
-        private networkInterface: string,
-        filter: string = "port 5060"
-    ) {
+    constructor(networkInterface: string, filter: string = 'tcp port 5060') {
+        this.networkInterface = networkInterface;
+        this.filter = filter;
+
         try {
-            this.session = pcap.createSession(networkInterface, { filter });
-            console.log(`Listening on ${this.networkInterface} with filter '${filter}'...`);
+            this.session = pcap.createSession(this.networkInterface, { filter: this.filter });
+            console.log(`Listening on ${this.networkInterface} with filter '${this.filter}'...`);
         } catch (error) {
-            console.error("Failed to create pcap session");
+            console.error('Failed to create pcap session:', error);
             process.exit(1);
         }
     }
@@ -22,26 +24,25 @@ export class PacketCaptureModule {
             return;
         }
 
-        this.session.on("packet", this.handlePacket.bind(this));
-    }
+        this.session.on('packet', (rawPacket: Buffer) => {
+            console.log('Raw packet captured.');
 
-    private handlePacket(rawPacket: Buffer) {
-        console.log("Raw packet captured:", rawPacket);
-        try {
-            const packet = pcap.decode(rawPacket);
-            console.log("Decoded packet:", packet);
-        } catch (error) {
-            console.error("Failed to decode packet:", error);
-        }
+            try {
+                const decoded = pcap.decode(rawPacket);
+                console.log('Decoded packet:', decoded);
+            } catch (error) {
+                console.error('Failed to decode packet:', error);
+            }
+        });
     }
 
     stop() {
         try {
             this.session.close();
-            console.log("Packet capture session stopped.");
+            console.log('Packet capture session stopped.');
         } catch (error) {
-            console.error("Failed to close session", error);
-            throw new Error("Failed to close session");
+            console.error('Failed to close session', error);
+            throw new Error('Failed to close session');
         }
     }
 }
