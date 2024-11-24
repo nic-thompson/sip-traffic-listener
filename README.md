@@ -1,5 +1,5 @@
 # SIP Traffic Interceptor
-A Node.js-based application designed to capture and log SIP traffic (REGISTER, UNREGISTER) on the network using libpcap. This application is dockerized and built for deployment on Linux machines.
+An application designed to capture and log SIP traffic (REGISTER, UNREGISTER) on the network using libpcap. This application is dockerized and built for deployment on Linux machines.
 #### Build the Docker Image
 ```pnpm docker:build```
 
