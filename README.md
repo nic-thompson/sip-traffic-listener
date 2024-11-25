@@ -13,7 +13,7 @@ Use scp or similar to transfer the Docker image to the target Linux machine.
 
 ```scp interceptor_image.tar vocovo@<server-ip>:/home/vocovo/```
 
-### The rest of the steps are on the Linux box
+### The rest of the steps are on the Controller
 
 Stop the existing container if it exists
 ```sudo docker stop sip-traffic-interceptor```
