@@ -1,5 +1,9 @@
 # SIP Traffic Interceptor
 An application designed to capture and log SIP traffic (REGISTER, UNREGISTER) on the network using libpcap. This application is dockerized and built for deployment on Linux machines.
+
+#### Compile the code
+```pnpm build```
+
 #### Build the Docker Image
 ```pnpm docker:build```
 
