@@ -5,23 +5,28 @@ jest.mock('pcap', () => ({
     createSession: jest.fn(() => ({
         on: jest.fn((event, callback) => {
             if (event === 'packet') {
-                const fakePacket = Buffer.from('REGISTER sip:example.com SIP/2.0');
-                callback(fakePacket);
+                // Simulated raw packet
+                const testPacket = {
+                    payload: {
+                        payload: {
+                            payload: {
+                                data: Buffer.from('REGISTER sip:example.com SIP/2.0'),
+                            },
+                        },
+                    },
+                };
+                callback(testPacket);
             }
         }),
         close: jest.fn(),
     })),
-    decode: jest.fn(() => ({
+    decode: jest.fn(packet => ({
         data: 'fake decoded packet data',
-        payload: {
-            payload: {
-                payload: {
-                    data: Buffer.from('REGISTER sip:example.com SIP/2.0'),
-                },
-            },
-        },
+        payload: packet.payload, // Use payload from the mocked packet
     })),
 }));
+
+
 
 describe('PacketCaptureModule', () => {
     let mockExit: jest.SpyInstance;
@@ -32,6 +37,7 @@ describe('PacketCaptureModule', () => {
         mockExit = jest.spyOn(process, 'exit').mockImplementation((code?: string | number | null | undefined): never => {
             throw new Error(`process.exit called with ${code}`);
         });
+        jest.spyOn(console, 'warn').mockImplementation(() => {});
     });
 
     afterEach(() => {
@@ -51,19 +57,20 @@ describe('PacketCaptureModule', () => {
     it('should log a message when a packet is captured', () => {
         const packetCapture = new PacketCaptureModule('eth2');
         packetCapture.start();
-
+    
         expect(console.log).toHaveBeenCalledWith('Raw packet captured.');
         expect(console.log).toHaveBeenCalledWith('Decoded packet:', expect.objectContaining({
             data: 'fake decoded packet data',
             payload: expect.objectContaining({
                 payload: expect.objectContaining({
                     payload: expect.objectContaining({
-                        data: expect.any(Buffer),
+                        data: expect.any(Buffer), // Match the actual type
                     }),
                 }),
             }),
         }));
     });
+    
 
     it('should log an error and exit when pcap session creation fails', () => {
         (pcap.createSession as jest.Mock).mockImplementationOnce(() => {
@@ -91,14 +98,14 @@ describe('PacketCaptureModule', () => {
         (pcap.decode as jest.Mock).mockImplementationOnce(() => {
             throw new Error('Decoding failed');
         });
-
+    
         const packetCapture = new PacketCaptureModule('eth2');
         packetCapture.start();
-
+    
         const mockSession = (pcap.createSession as jest.Mock).mock.results[0].value;
         const packetHandler = mockSession.on.mock.calls[0][1];
         packetHandler(Buffer.from('mock packet'));
-
+    
         expect(console.error).toHaveBeenCalledWith('Failed to decode packet:', expect.any(Error));
     });
 
@@ -126,5 +133,97 @@ describe('PacketCaptureModule', () => {
         // Act & Assert: Call `stop` and ensure it throws an error
         expect(() => packetCapture.stop()).toThrow('Failed to close session');
         expect(console.error).toHaveBeenCalledWith('Failed to close session', expect.any(Error));
-    });    
+    });
+    
+    it('should extract a SIP message from a packet', () => {
+        const packetCapture = new PacketCaptureModule('eth2');
+        packetCapture.start();
+
+        const mockSession = (pcap.createSession as jest.Mock).mock.results[0].value;
+        const packetHandler = mockSession.on.mock.calls[0][1];
+
+        // Simulate a packet with a SIP message
+        const sipPacket = {
+            payload: {
+                payload: {
+                    payload: {
+                        data: Buffer.from('REGISTER sip:example.com SIP/2.0'),
+                    },
+                },
+            },
+        };
+
+        packetHandler(sipPacket);
+
+        expect(console.log).toHaveBeenCalledWith('Raw packet captured.');
+        expect(console.log).toHaveBeenCalledWith('Extracted SIP Message:', 'REGISTER sip:example.com SIP/2.0');
+    });
+
+    it('should log a warning when no SIP message is found in a packet', () => {
+        jest.spyOn(console, 'log').mockImplementation(() => {});
+        jest.spyOn(console, 'warn').mockImplementation(() => {});
+    
+        const packetCapture = new PacketCaptureModule('eth2');
+        packetCapture.start();
+    
+        const mockSession = (pcap.createSession as jest.Mock).mock.results[0].value;
+    
+        // Debug: Verify handler calls
+        console.log('Mock session calls:', mockSession.on.mock.calls);
+        // process.stdout.write(`Mock session calls: ${JSON.stringify(mockSession.on.mock.calls)}\n`);
+    
+        // Properly define the test packet
+        const nonSipPacket = {
+            payload: {
+                payload: {
+                    payload: {
+                        data: Buffer.from('GET / HTTP/1.1'), // Non-SIP data
+                    },
+                },
+            },
+        };
+    
+        // Debug: Verify packet structure
+        console.log('Test packet:', nonSipPacket);
+        // process.stdout.write(`Test packet structure: ${JSON.stringify(nonSipPacket)}\n`);
+    
+        // Trigger the packet handler
+        mockSession.on.mock.calls[0][1](nonSipPacket);
+    
+        // Verify logs
+        expect(console.log).toHaveBeenCalledWith('Raw packet captured.');
+        expect(console.warn).toHaveBeenCalledWith('No SIP message found in the packet.');
+    });  
+
+    it('should log an error when extractSIPMessage throws an exception', () => {
+        jest.spyOn(console, 'error').mockImplementation(() => {});
+        const packetCapture = new PacketCaptureModule('eth2');
+        packetCapture.start();
+    
+        const mockSession = (pcap.createSession as jest.Mock).mock.results[0].value;
+    
+        // Simulate a packet with a structure that causes an exception
+        const faultyPacket = {
+            payload: {
+                payload: {
+                    payload: {
+                        data: {
+                            toString: () => {
+                                throw new Error('Forced error'); // Force an exception
+                            },
+                        },
+                    },
+                },
+            },
+        };
+    
+        // Trigger the packet handler with the faulty packet
+        mockSession.on.mock.calls[0][1](faultyPacket);
+    
+        // Verify the error log
+        expect(console.error).toHaveBeenCalledWith(
+            'Error extracting SIP message:',
+            expect.any(Error)
+        );
+    });
 });
