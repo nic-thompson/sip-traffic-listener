@@ -244,7 +244,7 @@ describe('PacketCaptureModule', () => {
         );
     });
 
-    
+
     it('should handle a packet with completely missing data gracefully', () => {
         const packetCapture = new PacketCaptureModule('eth2');
     
@@ -285,6 +285,38 @@ describe('PacketCaptureModule', () => {
         // Assert the stream key has been removed from the buffer
         expect(packetCapture['tcpStreams'].has(streamKey)).toBe(false);
     });  
+
+    it('should format a SIP message into a more readable form', () => {
+        const packetCapture = new PacketCaptureModule('eth2');
+        const sipMessage = `REGISTER sip:example.com SIP/2.0\r\n` +
+                           `Via: SIP/2.0/UDP 192.168.1.1;branch=z9hG4bK-776asdhds\r\n` +
+                           `Content-Length: 0\r\n\r\n`;
+        
+        const expectedMessage = 
+            `1: REGISTER sip:example.com SIP/2.0\n` +
+            `2: Via: SIP/2.0/UDP 192.168.1.1;branch=z9hG4bK-776asdhds\n` +
+            `3: Content-Length: 0`;
+    
+        const formattedMessage = packetCapture.formatSIPMessage(sipMessage);
+    
+        console.log('Expected Message:\n', expectedMessage);
+        console.log('Formatted Message:\n', formattedMessage);
+    
+        expect(formattedMessage).toBe(expectedMessage);
+    });
+
+    it('should return an empty string if SIP message is null or undefined', () => {
+        const packetCapture = new PacketCaptureModule('eth2');
+    
+        // Call formatSIPMessage with null
+        const resultNull = packetCapture.formatSIPMessage(null);
+        expect(resultNull).toBe('');
+    
+        // Call formatSIPMessage with undefined
+        const resultUndefined = packetCapture.formatSIPMessage(undefined);
+        expect(resultUndefined).toBe('');
+    });
+    
 });
 
 describe('reassembleTCPStream', () => {

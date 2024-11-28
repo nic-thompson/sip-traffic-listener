@@ -140,4 +140,19 @@ public reassembleTCPStream(packet: any): string | null {
     this.tcpStreams.set(streamKey, updatedBuffer);
     return null;
 }
+
+public formatSIPMessage(sipMessage: string | null | undefined): string {
+    if (!sipMessage) {
+        return '';
+    }
+    // Split the message into lines, trim whitespace, and remove empty lines
+    const lines = sipMessage.split(/\r?\n/).filter(line => line.trim() !== '');
+    // Format each line with its index
+    return lines.map((line, index) => `${index + 1}: ${line}`).join('\n');
+}
+
+
+
+
+
 }
