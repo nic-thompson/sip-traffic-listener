@@ -13,6 +13,7 @@ jest.mock('pcap', () => ({
                                 data: Buffer.from('REGISTER sip:example.com SIP/2.0'),
                             },
                         },
+                        protocol: 17, // UDP protocol
                     },
                 };
                 callback(testPacket);
@@ -21,12 +22,9 @@ jest.mock('pcap', () => ({
         close: jest.fn(),
     })),
     decode: jest.fn(packet => ({
-        data: 'fake decoded packet data',
-        payload: packet.payload, // Use payload from the mocked packet
+        payload: packet.payload, // Match the nested payload structure
     })),
 }));
-
-
 
 describe('PacketCaptureModule', () => {
     let mockExit: jest.SpyInstance;
@@ -58,20 +56,24 @@ describe('PacketCaptureModule', () => {
         const packetCapture = new PacketCaptureModule('eth2');
         packetCapture.start();
     
+        const mockSession = (pcap.createSession as jest.Mock).mock.results[0].value;
+        const nonTcpPacket = {
+            payload: {
+                protocol: 17, // UDP
+                payload: {
+                    payload: {
+                        data: Buffer.from('REGISTER sip:example.com SIP/2.0'),
+                    },
+                },
+            },
+        };
+    
+        mockSession.on.mock.calls[0][1](nonTcpPacket);
+    
         expect(console.log).toHaveBeenCalledWith('Raw packet captured.');
-        expect(console.log).toHaveBeenCalledWith('Decoded packet:', expect.objectContaining({
-            data: 'fake decoded packet data',
-            payload: expect.objectContaining({
-                payload: expect.objectContaining({
-                    payload: expect.objectContaining({
-                        data: expect.any(Buffer), // Match the actual type
-                    }),
-                }),
-            }),
-        }));
+        expect(console.log).toHaveBeenCalledWith('Decoded packet:', nonTcpPacket);
     });
     
-
     it('should log an error and exit when pcap session creation fails', () => {
         (pcap.createSession as jest.Mock).mockImplementationOnce(() => {
             throw new Error('Failed to create session');
@@ -138,29 +140,26 @@ describe('PacketCaptureModule', () => {
     it('should extract a SIP message from a packet', () => {
         const packetCapture = new PacketCaptureModule('eth2');
         packetCapture.start();
-
+    
         const mockSession = (pcap.createSession as jest.Mock).mock.results[0].value;
-        const packetHandler = mockSession.on.mock.calls[0][1];
-
-        // Simulate a packet with a SIP message
         const sipPacket = {
             payload: {
+                protocol: 17, // UDP
                 payload: {
                     payload: {
-                        data: Buffer.from('REGISTER sip:example.com SIP/2.0'),
-                    },
-                },
-            },
+                        data: Buffer.from('REGISTER sip:example.com SIP/2.0')
+                    }
+                }
+            }
         };
-
-        packetHandler(sipPacket);
-
+    
+        mockSession.on.mock.calls[0][1](sipPacket);
+    
         expect(console.log).toHaveBeenCalledWith('Raw packet captured.');
         expect(console.log).toHaveBeenCalledWith('Extracted SIP Message:', 'REGISTER sip:example.com SIP/2.0');
     });
 
     it('should log a warning when no SIP message is found in a packet', () => {
-        jest.spyOn(console, 'log').mockImplementation(() => {});
         jest.spyOn(console, 'warn').mockImplementation(() => {});
     
         const packetCapture = new PacketCaptureModule('eth2');
@@ -168,62 +167,259 @@ describe('PacketCaptureModule', () => {
     
         const mockSession = (pcap.createSession as jest.Mock).mock.results[0].value;
     
-        // Debug: Verify handler calls
-        console.log('Mock session calls:', mockSession.on.mock.calls);
-        // process.stdout.write(`Mock session calls: ${JSON.stringify(mockSession.on.mock.calls)}\n`);
-    
-        // Properly define the test packet
+        // Simulate a packet that does not contain SIP message
         const nonSipPacket = {
             payload: {
                 payload: {
                     payload: {
-                        data: Buffer.from('GET / HTTP/1.1'), // Non-SIP data
+                        data: Buffer.from('INVALID DATA'), // Clearly non-SIP
                     },
                 },
             },
         };
     
-        // Debug: Verify packet structure
-        console.log('Test packet:', nonSipPacket);
-        // process.stdout.write(`Test packet structure: ${JSON.stringify(nonSipPacket)}\n`);
-    
-        // Trigger the packet handler
         mockSession.on.mock.calls[0][1](nonSipPacket);
+    
+        // Verify the warning is logged
+        expect(console.warn).toHaveBeenCalledWith('No SIP message found in the packet.');
+    });
+    
+    it('should log the complete SIP message when reassembly is successful', () => {
+        jest.spyOn(console, 'log').mockImplementation(() => {});
+        const packetCapture = new PacketCaptureModule('eth2');
+        packetCapture.start();
+    
+        const mockSession = (pcap.createSession as jest.Mock).mock.results[0].value;
+    
+        // Simulate a TCP packet that can be reassembled into a SIP message
+        const tcpPacket = {
+            payload: {
+                protocol: 6, // TCP protocol
+                payload: {
+                    segments: [
+                        Buffer.from('REGISTER sip:'),
+                        Buffer.from('example.com SIP/2.0'),
+                    ],
+                },
+            },
+        };
+    
+        // Mock the `reassembleTCPStream` method to produce a complete SIP message
+        jest.spyOn(packetCapture, 'reassembleTCPStream').mockReturnValue('REGISTER sip:example.com SIP/2.0');
+    
+        // Trigger the packet handler with the mocked TCP packet
+        mockSession.on.mock.calls[0][1](tcpPacket);
     
         // Verify logs
         expect(console.log).toHaveBeenCalledWith('Raw packet captured.');
-        expect(console.warn).toHaveBeenCalledWith('No SIP message found in the packet.');
-    });  
-
+        expect(console.log).toHaveBeenCalledWith('Complete SIP Message:', 'REGISTER sip:example.com SIP/2.0');
+    });
+    
     it('should log an error when extractSIPMessage throws an exception', () => {
         jest.spyOn(console, 'error').mockImplementation(() => {});
         const packetCapture = new PacketCaptureModule('eth2');
         packetCapture.start();
     
         const mockSession = (pcap.createSession as jest.Mock).mock.results[0].value;
-    
-        // Simulate a packet with a structure that causes an exception
         const faultyPacket = {
             payload: {
+                protocol: 17, // UDP
                 payload: {
                     payload: {
                         data: {
                             toString: () => {
                                 throw new Error('Forced error'); // Force an exception
-                            },
-                        },
-                    },
-                },
-            },
+                            }
+                        }
+                    }
+                }
+            }
         };
     
-        // Trigger the packet handler with the faulty packet
         mockSession.on.mock.calls[0][1](faultyPacket);
     
-        // Verify the error log
         expect(console.error).toHaveBeenCalledWith(
             'Error extracting SIP message:',
             expect.any(Error)
         );
+    });
+
+    
+    it('should handle a packet with completely missing data gracefully', () => {
+        const packetCapture = new PacketCaptureModule('eth2');
+    
+        const emptyPacket = {};
+    
+        const result = packetCapture.extractSIPMessage(emptyPacket);
+    
+        expect(result).toBeNull();
+    });
+    
+    it('should handle a SIP message with headers only and remove the stream key', () => {
+        const packetCapture = new PacketCaptureModule('eth2');
+    
+        // Define stream key and headers-only message
+        const streamKey = '192.168.1.1:5060-192.168.1.2:5060';
+        const sipHeaders = `REGISTER sip:example.com SIP/2.0\r\nCSeq: 1 REGISTER\r\n\r\n`;
+        packetCapture['tcpStreams'] = new Map([[streamKey, Buffer.from(sipHeaders)]]);
+    
+        // Simulate the packet
+        const packet = {
+            payload: {
+                saddr: '192.168.1.1',
+                daddr: '192.168.1.2',
+                payload: {
+                    sport: 5060,
+                    dport: 5060,
+                    payload: Buffer.from(''), // No additional payload
+                },
+            },
+        };
+    
+        // Call the function
+        const result = packetCapture.reassembleTCPStream(packet);
+    
+        // Assert the result is the complete SIP message
+        expect(result).toBe(sipHeaders);
+    
+        // Assert the stream key has been removed from the buffer
+        expect(packetCapture['tcpStreams'].has(streamKey)).toBe(false);
+    });  
+});
+
+describe('reassembleTCPStream', () => {
+    it('should reassemble fragmented TCP packets into a complete SIP message', () => {
+        const packetCapture = new PacketCaptureModule('eth2');
+
+        const mockPacketPart1 = {
+            payload: {
+                saddr: '192.168.1.1',
+                daddr: '192.168.1.2',
+                payload: {
+                    sport: 5060,
+                    dport: 5060,
+                    payload: Buffer.from('REGISTER sip:example.com SIP/2.0\r\nVia: SIP/2.0/UDP ')
+                }
+            }
+        };
+
+        const mockPacketPart2 = {
+            payload: {
+                saddr: '192.168.1.1',
+                daddr: '192.168.1.2',
+                payload: {
+                    sport: 5060,
+                    dport: 5060,
+                    payload: Buffer.from('192.168.1.1;branch=z9hG4bK-776asdhds\r\nContent-Length: 0\r\n\r\n')
+                }
+            }
+        };
+
+        // Pass the first packet part
+        const resultPart1 = packetCapture['reassembleTCPStream'](mockPacketPart1);
+        expect(resultPart1).toBeNull(); // Not complete yet
+
+        // Pass the second packet part
+        const resultPart2 = packetCapture['reassembleTCPStream'](mockPacketPart2);
+        expect(resultPart2).toBe(
+            'REGISTER sip:example.com SIP/2.0\r\nVia: SIP/2.0/UDP 192.168.1.1;branch=z9hG4bK-776asdhds\r\nContent-Length: 0\r\n\r\n'
+        ); // Complete message
+    });
+
+    it('should handle a single complete TCP packet', () => {
+        const packetCapture = new PacketCaptureModule('eth2');
+
+        const mockCompletePacket = {
+            payload: {
+                saddr: '192.168.1.1',
+                daddr: '192.168.1.2',
+                payload: {
+                    sport: 5060,
+                    dport: 5060,
+                    payload: Buffer.from(
+                        'REGISTER sip:example.com SIP/2.0\r\nVia: SIP/2.0/UDP 192.168.1.1;branch=z9hG4bK-776asdhds\r\nContent-Length: 0\r\n\r\n'
+                    )
+                }
+            }
+        };
+
+        const result = packetCapture['reassembleTCPStream'](mockCompletePacket);
+        expect(result).toBe(
+            'REGISTER sip:example.com SIP/2.0\r\nVia: SIP/2.0/UDP 192.168.1.1;branch=z9hG4bK-776asdhds\r\nContent-Length: 0\r\n\r\n'
+        );
+    });
+
+    it('should reset the buffer after reassembly', () => {
+        const packetCapture = new PacketCaptureModule('eth2');
+
+        const mockPacketPart1 = {
+            payload: {
+                saddr: '192.168.1.1',
+                daddr: '192.168.1.2',
+                payload: {
+                    sport: 5060,
+                    dport: 5060,
+                    payload: Buffer.from('REGISTER sip:example.com SIP/2.0\r\nVia: SIP/2.0/UDP ')
+                }
+            }
+        };
+
+        const mockPacketPart2 = {
+            payload: {
+                saddr: '192.168.1.1',
+                daddr: '192.168.1.2',
+                payload: {
+                    sport: 5060,
+                    dport: 5060,
+                    payload: Buffer.from('192.168.1.1;branch=z9hG4bK-776asdhds\r\nContent-Length: 0\r\n\r\n')
+                }
+            }
+        };
+
+        // Reassemble the packets
+        packetCapture['reassembleTCPStream'](mockPacketPart1);
+        const result = packetCapture['reassembleTCPStream'](mockPacketPart2);
+
+        // Verify the buffer is cleared after reassembly
+        expect(result).toBe(
+            'REGISTER sip:example.com SIP/2.0\r\nVia: SIP/2.0/UDP 192.168.1.1;branch=z9hG4bK-776asdhds\r\nContent-Length: 0\r\n\r\n'
+        );
+
+        // Verify the buffer is reset
+        const streamKey = '192.168.1.1:5060-192.168.1.2:5060';
+        expect(packetCapture['tcpStreams'].has(streamKey)).toBe(false);
+    });
+
+    it('should handle errors during TCP stream reassembly gracefully', () => {
+        const packetCapture = new PacketCaptureModule('eth2');
+    
+        const faultyTcpPacket = {
+            payload: {
+                protocol: 6, // TCP
+                payload: {
+                    segments: null, // Simulate malformed TCP data
+                },
+            },
+        };
+    
+        const result = packetCapture.reassembleTCPStream(faultyTcpPacket);
+    
+        expect(result).toBe(null);
+    });
+
+    it('should return null for malformed TCP packet in reassembleTCPStream', () => {
+        const packetCapture = new PacketCaptureModule('eth2');
+    
+        const malformedTcpPacket = {
+            payload: {
+                protocol: 6, // TCP protocol
+                payload: null, // No TCP data present
+            },
+        };
+    
+        const result = packetCapture.reassembleTCPStream(malformedTcpPacket);
+    
+        // Expect null to be returned for malformed TCP packets
+        expect(result).toBeNull();
     });
 });
