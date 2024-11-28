@@ -1,12 +1,12 @@
-FROM node:20-slim AS build
+# Build stage
+FROM node:20-alpine AS build
 
-# Use apt-get instead of apk to install the necessary packages
-RUN apt-get update && apt-get install -y \
+# Install necessary build tools and dependencies using apk (Alpine's package manager)
+RUN apk add --no-cache \
     python3 \
     make \
     g++ \
-    libpcap-dev && \
-    rm -rf /var/lib/apt/lists/*
+    libpcap-dev
 
 WORKDIR /home/node
 
@@ -17,21 +17,20 @@ RUN npm install -g pnpm && pnpm install
 # Copy the rest of the source code
 COPY . .
 
+# Build the application
 RUN pnpm run build
 
 # Production stage
-FROM node:20-slim AS production
+FROM node:20-alpine AS production
 
-# Install production dependencies using apt-get
-RUN apt-get update && apt-get install -y \
-    python3 \
-    make \
-    g++ \
-    libpcap-dev && \
-    rm -rf /var/lib/apt/lists/*
+# Install runtime dependencies
+RUN apk add --no-cache \
+    libpcap
 
 WORKDIR /home/node
 
+# Copy built application from the build stage
 COPY --from=build /home/node .
 
+# Start the application
 CMD ["node", "./dist/src/index.js"]
