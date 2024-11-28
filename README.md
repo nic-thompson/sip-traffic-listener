@@ -10,7 +10,7 @@ An application designed to capture and log SIP traffic (REGISTER, UNREGISTER) on
 #### Export the Docker Image
 Once the image is built, export it to a tar file for transfer (if needed).
 
-```pnpm docker:export:interceptor```
+```pnpm docker:export:listener```
 
 #### Transfer the Docker Image
 Use scp or similar to transfer the Docker image to the target Linux machine.
@@ -20,25 +20,25 @@ Use scp or similar to transfer the Docker image to the target Linux machine.
 ### The rest of the steps are on the Controller
 
 Stop the existing container if it exists
-```sudo docker stop sip-traffic-interceptor```
+```sudo docker stop sip-traffic-listener```
 
 Remove the existing container if it exists
-```sudo docker rm sip-traffic-interceptor```
+```sudo docker rm sip-traffic-listener```
 
 #### Load the Docker Image
 On the target Linux machine, load the image into Docker.
 
-```sudo docker load -i interceptor_image.tar```
+```sudo docker load -i listener_image.tar```
 
 #### Run the Container
 Make sure to set the appropriate network interface (eth2 in this case) for the container to capture traffic.
 
-```sudo docker run --privileged --network host --restart unless-stopped --name sip-traffic-interceptor -d sip-traffic-interceptor```
+```sudo docker run --privileged --network host --restart unless-stopped --name sip-traffic-listener -d sip-traffic-listener```
 
 #### Verify the Container
 You can verify that the container is running and capturing traffic by viewing the logs.
 
-```sudo docker logs -f sip-traffic-interceptor```
+```sudo docker logs -f sip-traffic-listener```
 
 ### Configuration
 Network Interface: Ensure that the correct network interface (e.g., eth2) is specified in the application.
