@@ -1,4 +1,4 @@
-import { PacketCaptureModule } from '../src/interceptor/packetCapture';
+import { PacketCaptureModule } from '../src/listener/packetCapture';
 
 const networkInterface = 'eth2';
 const filter = 'udp port 5060 or tcp port 5060';

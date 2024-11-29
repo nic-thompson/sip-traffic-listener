@@ -1,5 +1,5 @@
 import pcap from 'pcap';
-import { PacketCaptureModule } from '../src/interceptor/packetCapture';
+import { PacketCaptureModule } from '../src/listener/packetCapture';
 
 jest.mock('pcap', () => ({
     createSession: jest.fn(() => ({
