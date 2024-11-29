@@ -1,6 +1,9 @@
 # SIP Traffic Listener
 An application designed to capture and log SIP traffic (REGISTER, UNREGISTER) on the network using libpcap. This application is dockerized and built for deployment on Linux machines.
 
+#### Install dependencies
+```pnpm install```
+
 #### Test the code
 ```pnpm test```
 
