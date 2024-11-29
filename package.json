@@ -1,13 +1,13 @@
 {
-  "name": "sip-traffic-interceptor",
+  "name": "sip-traffic-listener",
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
   "scripts": {
     "test": "jest",
     "build": "rm -rf dist && tsc",
-    "docker:build": "docker build --platform linux/amd64 -t sip-traffic-interceptor .",
-    "docker:export:interceptor": "docker save -o interceptor_image.tar sip-traffic-interceptor"
+    "docker:build": "docker build --platform linux/amd64 -t sip-traffic-listener .",
+    "docker:export:listener": "docker save -o listener_image.tar sip-traffic-listener"
   },
   "keywords": [],
   "author": "",
