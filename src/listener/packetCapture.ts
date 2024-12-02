@@ -1,4 +1,5 @@
 import pcap from 'pcap';
+import { extractSIPMessage } from './extractSIPMessage';
 
 let chalk: any;
 
@@ -47,7 +48,7 @@ export class PacketCaptureModule {
                         console.log(chalk?.green('Complete SIP Message:'), completeMessage);
                     }
                 } else {
-                    const sipMessage = this.extractSIPMessage(decodedPacket);
+                    const sipMessage = extractSIPMessage(decodedPacket);
                     if (sipMessage) {
                         console.log(chalk?.green('Extracted SIP Message:'), sipMessage);
                     } else {
@@ -67,31 +68,6 @@ export class PacketCaptureModule {
         } catch (error) {
             console.error(chalk?.red('Failed to close session'), error);
             throw new Error('Failed to close session');
-        }
-    }
-
-    public extractSIPMessage(packet: any): string | null {
-        try {
-            let payload = packet?.payload;
-            while (payload && payload.payload) {
-                payload = payload.payload;
-            }
-
-            if (payload?.data) {
-                const sipMessage = payload.data.toString('utf-8').trim();
-
-                if (
-                    sipMessage.startsWith('REGISTER') ||
-                    sipMessage.startsWith('UNREGISTER') ||
-                    sipMessage.startsWith('SIP/2.0')
-                ) {
-                    return sipMessage;
-                }
-            }
-            return null;
-        } catch (error) {
-            console.error(chalk?.red('Error extracting SIP message:'), error);
-            throw error;
         }
     }
 

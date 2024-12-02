@@ -1,5 +1,6 @@
 import pcap from 'pcap';
 import { PacketCaptureModule } from '../src/listener/packetCapture';
+import { extractSIPMessage } from '../src/listener/extractSIPMessage';
 import chalk from 'chalk';
 
 // Mock the chalk module
@@ -256,13 +257,10 @@ describe('PacketCaptureModule', () => {
         );
     });
 
-
     it('should handle a packet with completely missing data gracefully', () => {
-        const packetCapture = new PacketCaptureModule('eth2');
-    
         const emptyPacket = {};
     
-        const result = packetCapture.extractSIPMessage(emptyPacket);
+        const result = extractSIPMessage(emptyPacket);
     
         expect(result).toBeNull();
     });
