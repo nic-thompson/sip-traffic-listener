@@ -1,12 +1,18 @@
+/** @type {import('ts-jest').JestConfigWithTsJest} */
 module.exports = {
   preset: 'ts-jest',
   testEnvironment: 'node',
-  moduleFileExtensions: ['ts', 'js'],
-  transform: {
-    '^.+\\.ts?$': 'ts-jest',
-  },
-  testRegex: '(/__tests__/.*|(\\.|/)(test|spec))\\.ts?$',
+  testMatch: ['**/__tests__/**/*.test.ts', '**/?(*.)+(spec|test).ts'],
   collectCoverage: true,
-  coverageReporters: ['json', 'lcov', 'text', 'clover'],
-  verbose: true,
+  coverageDirectory: './coverage',
+  coveragePathIgnorePatterns: ['/node_modules/', '/dist/'],
+  transform: {
+    '^.+\\.ts$': [
+      'ts-jest',
+      {
+        tsconfig: './tsconfig.json',
+      },
+    ],
+  },
 };
+
