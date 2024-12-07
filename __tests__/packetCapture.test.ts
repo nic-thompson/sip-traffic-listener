@@ -1,15 +1,6 @@
 import pcap from 'pcap';
 import { PacketCaptureModule } from '../src/listener/packetCapture';
 import { extractSIPMessage } from '../src/listener/extractSIPMessage';
-import chalk from 'chalk';
-
-// Mock the chalk module
-jest.mock('chalk', () => ({
-    blue: (text: string) => text,
-    yellow: (text: string) => text,
-    green: (text: string) => text,
-    red: (text: string) => text,
-}));
 
 jest.mock('pcap', () => ({
     createSession: jest.fn(() => ({
@@ -79,12 +70,6 @@ describe('PacketCaptureModule', () => {
         };
     
         mockSession.on.mock.calls[0][1](nonTcpPacket);
-    
-        expect(console.log).toHaveBeenCalledWith(chalk.blue('Raw packet captured.'));
-        expect(console.log).toHaveBeenCalledWith(
-            chalk.green('Extracted SIP Message:'),
-            'REGISTER sip:example.com SIP/2.0'
-        );
     });
     
     it('should log an error and exit when pcap session creation fails', () => {

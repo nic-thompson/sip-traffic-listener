@@ -1,11 +1,7 @@
 import pcap from 'pcap';
 import { extractSIPMessage } from './extractSIPMessage';
 
-let chalk: any;
 
-(async () => {
-    chalk = (await import('chalk')).default;
-})();
 
 export class PacketCaptureModule {
     private session: any;
@@ -19,44 +15,44 @@ export class PacketCaptureModule {
 
         try {
             this.session = pcap.createSession(this.networkInterface, { filter: this.filter });
-            console.log(chalk?.blue(`Listening on ${this.networkInterface} with filter '${this.filter}'...`));
+            console.log((`Listening on ${this.networkInterface} with filter '${this.filter}'...`));
         } catch (error) {
-            console.error(chalk?.red('Failed to create pcap session:'), error);
+            console.error(('Failed to create pcap session:'), error);
             process.exit(1);
         }
     }
 
     start() {
         if (typeof this.session.on !== 'function') {
-            console.error(chalk?.red("Session 'on' method not available"));
+            console.error(("Session 'on' method not available"));
             return;
         }
 
         this.session.on('packet', (rawPacket: Buffer) => {
-            console.log(chalk?.blue('Raw packet captured.'));
+            console.log(('Raw packet captured.'));
 
             try {
                 const decodedPacket = pcap.decode(rawPacket);
 
                 if (decodedPacket.payload?.protocol !== 6) {
-                    console.log(chalk?.yellow('Decoded packet (non-TCP):'), decodedPacket);
+                    console.log(('Decoded packet (non-TCP):'), decodedPacket);
                 }
 
                 if (decodedPacket.payload?.protocol === 6) {
                     const completeMessage = this.reassembleTCPStream(decodedPacket);
                     if (completeMessage) {
-                        console.log(chalk?.green('Complete SIP Message:'), completeMessage);
+                        console.log(('Complete SIP Message:'), completeMessage);
                     }
                 } else {
                     const sipMessage = extractSIPMessage(decodedPacket);
                     if (sipMessage) {
-                        console.log(chalk?.green('Extracted SIP Message:'), sipMessage);
+                        console.log(('Extracted SIP Message:'), sipMessage);
                     } else {
-                        console.warn(chalk?.yellow('No SIP message found in the packet.'));
+                        console.warn(('No SIP message found in the packet.'));
                     }
                 }
             } catch (error) {
-                console.error(chalk?.red('Failed to decode packet:'), error);
+                console.error(('Failed to decode packet:'), error);
             }
         });
     }
@@ -64,9 +60,9 @@ export class PacketCaptureModule {
     stop() {
         try {
             this.session.close();
-            console.log(chalk?.green('Packet capture session stopped.'));
+            console.log(('Packet capture session stopped.'));
         } catch (error) {
-            console.error(chalk?.red('Failed to close session'), error);
+            console.error(('Failed to close session'), error);
             throw new Error('Failed to close session');
         }
     }
