@@ -6,6 +6,7 @@ module.exports = {
   collectCoverage: true,
   coverageDirectory: './coverage',
   coveragePathIgnorePatterns: ['/node_modules/', '/dist/'],
+  verbose: true,
   transform: {
     '^.+\\.ts$': [
       'ts-jest',
@@ -15,4 +16,3 @@ module.exports = {
     ],
   },
 };
-
