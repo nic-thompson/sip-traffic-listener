@@ -1,6 +1,7 @@
 import pcap from 'pcap';
 import { PacketCaptureModule } from '../listener/packetCapture';
 import { extractSIPMessage } from '../listener/extractSIPMessage';
+import { formatSIPMessage } from '../listener/formatSIPMessage';
 
 jest.mock('pcap', () => ({
     createSession: jest.fn(() => ({
@@ -48,6 +49,28 @@ describe('PacketCaptureModule', () => {
     afterEach(() => {
         jest.clearAllMocks();
         mockExit.mockRestore();
+    });
+
+    it('should format a valid SIP message', () => {
+        const sipMessage = 'REGISTER sip:example.com SIP/2.0\r\nContent-Length: 0\r\n';
+        const formattedMessage = formatSIPMessage(sipMessage); // Call directly
+        expect(formattedMessage).toBe('1: REGISTER sip:example.com SIP/2.0\n2: Content-Length: 0');
+    });
+
+    it('should return an empty string for null input', () => {
+        const resultNull = formatSIPMessage(null); // Call directly
+        expect(resultNull).toBe('');
+    });
+
+    it('should return an empty string for undefined input', () => {
+        const resultUndefined = formatSIPMessage(undefined); // Call directly
+        expect(resultUndefined).toBe('');
+    });
+
+    it('should ignore empty lines in a SIP message', () => {
+        const sipMessage = 'REGISTER sip:example.com SIP/2.0\r\n\r\nContent-Length: 0\r\n';
+        const formattedMessage = formatSIPMessage(sipMessage); // Call directly
+        expect(formattedMessage).toBe('1: REGISTER sip:example.com SIP/2.0\n2: Content-Length: 0');
     });
 
     it('should create a pcap session with the correct interface and filter', () => {
@@ -325,7 +348,6 @@ describe('PacketCaptureModule', () => {
     });
 
     it('should format a SIP message into a more readable form', () => {
-        const packetCapture = new PacketCaptureModule('eth2');
         const sipMessage =
             `REGISTER sip:example.com SIP/2.0\r\n` +
             `Via: SIP/2.0/UDP 192.168.1.1;branch=z9hG4bK-776asdhds\r\n` +
@@ -336,7 +358,7 @@ describe('PacketCaptureModule', () => {
             `2: Via: SIP/2.0/UDP 192.168.1.1;branch=z9hG4bK-776asdhds\n` +
             `3: Content-Length: 0`;
 
-        const formattedMessage = packetCapture.formatSIPMessage(sipMessage);
+        const formattedMessage = formatSIPMessage(sipMessage);
 
         console.log('Expected Message:\n', expectedMessage);
         console.log('Formatted Message:\n', formattedMessage);
@@ -345,14 +367,12 @@ describe('PacketCaptureModule', () => {
     });
 
     it('should return an empty string if SIP message is null or undefined', () => {
-        const packetCapture = new PacketCaptureModule('eth2');
-
         // Call formatSIPMessage with null
-        const resultNull = packetCapture.formatSIPMessage(null);
+        const resultNull = formatSIPMessage(null);
         expect(resultNull).toBe('');
 
         // Call formatSIPMessage with undefined
-        const resultUndefined = packetCapture.formatSIPMessage(undefined);
+        const resultUndefined = formatSIPMessage(undefined);
         expect(resultUndefined).toBe('');
     });
 });
