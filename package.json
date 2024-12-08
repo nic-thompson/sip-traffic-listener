@@ -5,7 +5,9 @@
   "main": "index.js",
   "scripts": {
     "test": "jest",
-    "build": "rm -rf dist && tsc",
+    "clean": "rm -rf dist coverage",
+    "build": "pnpm clean && tsc",
+    "type-check": "tsc --noEmit",
     "docker:build": "docker build --platform linux/amd64 -t sip-traffic-listener .",
     "docker:export:listener": "docker save -o listener_image.tar sip-traffic-listener"
   },
@@ -21,6 +23,7 @@
     "@types/node": "^22.7.5",
     "jest": "^29.7.0",
     "ts-jest": "^29.2.5",
+    "ts-node-dev": "^2.0.0",
     "typescript": "^5.6.3"
   }
 }
