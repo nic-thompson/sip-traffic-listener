@@ -1,6 +1,7 @@
 import { formatSIPMessage } from './formatSIPMessage';
 import pcap from 'pcap';
 import { extractSIPMessage } from './extractSIPMessage';
+import { reassembleTCPStream } from './reassembleTCPStream';
 
 export class PacketCaptureModule {
     private session: any;
@@ -33,12 +34,8 @@ export class PacketCaptureModule {
             try {
                 const decodedPacket = pcap.decode(rawPacket);
 
-                if (decodedPacket.payload?.protocol !== 6) {
-                    console.log('Decoded packet (non-TCP):', decodedPacket);
-                }
-
-                if (decodedPacket.payload?.protocol === 6) {
-                    const completeMessage = this.reassembleTCPStream(decodedPacket);
+                if (decodedPacket.payload?.protocol === 6) { // TCP Protocol
+                    const completeMessage = reassembleTCPStream(decodedPacket, this.tcpStreams);
                     if (completeMessage) {
                         console.log('Complete SIP Message:', completeMessage);
                         console.log('Formatted SIP Message:\n', formatSIPMessage(completeMessage));
@@ -66,47 +63,5 @@ export class PacketCaptureModule {
             console.error('Failed to close session', error);
             throw new Error('Failed to close session');
         }
-    }
-
-    public reassembleTCPStream(packet: any): string | null {
-        const src = packet.payload?.saddr;
-        const dst = packet.payload?.daddr;
-        const sport = packet.payload?.payload?.sport;
-        const dport = packet.payload?.payload?.dport;
-
-        if (!src || !dst || !sport || !dport || !packet.payload?.payload?.payload) {
-            return null;
-        }
-
-        const streamKey = `${src}:${sport}-${dst}:${dport}`;
-        const tcpPayload = packet.payload.payload.payload;
-
-        const currentBuffer = this.tcpStreams.get(streamKey) || Buffer.alloc(0);
-        const updatedBuffer = Buffer.concat([currentBuffer, tcpPayload]);
-
-        const message = updatedBuffer.toString('utf-8');
-
-        if (message.includes('\r\n\r\n')) {
-            const headersEndIndex = message.indexOf('\r\n\r\n');
-            const headers = message.substring(0, headersEndIndex);
-            const contentLengthMatch = headers.match(/Content-Length:\s*(\d+)/i);
-
-            if (contentLengthMatch) {
-                const contentLength = parseInt(contentLengthMatch[1], 10);
-                const bodyStartIndex = headersEndIndex + 4;
-                const body = message.substring(bodyStartIndex);
-
-                if (body.length >= contentLength) {
-                    this.tcpStreams.delete(streamKey);
-                    return message;
-                }
-            } else {
-                this.tcpStreams.delete(streamKey);
-                return message.substring(0, headersEndIndex + 4);
-            }
-        }
-
-        this.tcpStreams.set(streamKey, updatedBuffer);
-        return null;
     }
 }
