@@ -37,7 +37,7 @@ On the target Linux machine, load the image into Docker.
 ```sudo docker load -i listener_image.tar```
 
 #### Run the Container
-Make sure to set the appropriate network interface (eth2 in this case) for the container to capture traffic.
+Make sure to set the appropriate network interface (eth0, eth1, eth2 ...) for the container to capture traffic.
 
 ```sudo docker run --privileged --network host --restart unless-stopped --name sip-traffic-listener -d sip-traffic-listener```
 
