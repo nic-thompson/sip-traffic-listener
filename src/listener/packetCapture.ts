@@ -1,5 +1,5 @@
-import { formatSIPMessage } from './formatSIPMessage';
 import pcap from 'pcap';
+import { formatSIPMessage } from './formatSIPMessage';
 import { extractSIPMessage } from './extractSIPMessage';
 import { reassembleTCPStream } from './reassembleTCPStream';
 
@@ -30,10 +30,12 @@ export class PacketCaptureModule {
 
         this.session.on('packet', (rawPacket: Buffer) => {
             console.log('Raw packet captured.');
-
+            console.log('Packet received in PacketCaptureModule:', rawPacket.toString('hex')); // Logs raw packet in hex format
+        
             try {
                 const decodedPacket = pcap.decode(rawPacket);
-
+                console.log('Decoded Packet:', decodedPacket); // Logs the decoded structure
+        
                 if (decodedPacket.payload?.protocol === 6) { // TCP Protocol
                     const completeMessage = reassembleTCPStream(decodedPacket, this.tcpStreams);
                     if (completeMessage) {
@@ -52,7 +54,7 @@ export class PacketCaptureModule {
             } catch (error) {
                 console.error('Failed to decode packet:', error);
             }
-        });
+        });        
     }
 
     stop() {
