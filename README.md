@@ -1,52 +1,181 @@
 # SIP Traffic Listener
-An application designed to capture and log SIP traffic (REGISTER, UNREGISTER) on the network using libpcap. This application is dockerized and built for deployment on Linux machines.
 
-#### Install dependencies
-```pnpm install```
+SIP Traffic Listener captures live SIP traffic (e.g. REGISTER / UNREGISTER)
+from a network interface using libpcap, reconstructs fragmented TCP streams,
+and logs complete SIP messages for monitoring, debugging, or telemetry
+integration pipelines.
 
-#### Test the code
-```pnpm test```
+Designed for deployment on Linux systems via Docker.
 
-#### Compile the code
-```pnpm build```
+---
 
-#### Build the Docker Image
-```pnpm docker:build```
+## Features
 
-#### Export the Docker Image
-Once the image is built, export it to a tar file for transfer (if needed).
+- Capture live SIP traffic from a network interface
+- Detect REGISTER / UNREGISTER messages
+- Reassemble fragmented TCP SIP packets
+- Handle malformed packets safely
+- Structured logging output
+- Docker-based deployment
+- Fully unit-tested core parsing pipeline (100% branch coverage)
 
-```pnpm docker:export:listener```
+---
 
-#### Transfer the Docker Image
-Use scp or similar to transfer the Docker image to the target Linux machine.
+## Quick Start (Docker)
 
-```scp listener_image.tar vocovo@<server-ip>:/home/vocovo/```
+Build the container:
 
-### The rest of the steps are on the Linux box
+    pnpm docker:build
 
-Stop the existing container if it exists
-```sudo docker stop sip-traffic-listener```
+Export image for transfer (optional):
 
-Remove the existing container if it exists
-```sudo docker rm sip-traffic-listener```
+    pnpm docker:export:listener
 
-#### Load the Docker Image
-On the target Linux machine, load the image into Docker.
+Transfer to target machine:
 
-```sudo docker load -i listener_image.tar```
+    scp listener_image.tar user@<server-ip>:/home/user/
 
-#### Run the Container
-Make sure to set the appropriate network interface (eth0, eth1, eth2 ...) for the container to capture traffic.
+Load image on target machine:
 
-```sudo docker run --privileged --network host --restart unless-stopped --name sip-traffic-listener -d sip-traffic-listener```
+    sudo docker load -i listener_image.tar
 
-#### Verify the Container
-You can verify that the container is running and capturing traffic by viewing the logs.
+Run container:
 
-```sudo docker logs -f sip-traffic-listener```
+    sudo docker run \
+      --privileged \
+      --network host \
+      --restart unless-stopped \
+      --name sip-traffic-listener \
+      -d sip-traffic-listener
 
-### Configuration
-Network Interface: Ensure that the correct network interface (e.g., eth2) is specified in the application.
+View logs:
 
-SIP Port: The application captures SIP traffic on port 5060 by default. This can be modified in the source code if needed.
+    sudo docker logs -f sip-traffic-listener
+
+---
+
+## Local Development
+
+Install dependencies:
+
+    pnpm install
+
+Run tests:
+
+    pnpm test
+
+Build project:
+
+    pnpm build
+
+---
+
+## Example Output
+
+Example SIP REGISTER message detected:
+
+    REGISTER sip:example.com SIP/2.0
+    Via: SIP/2.0/UDP 192.168.1.10:5060
+    Call-ID: abc123@example.com
+    Contact: <sip:user@192.168.1.10>
+
+---
+
+## Configuration
+
+### Network Interface
+
+The capture interface must be configured in the application
+(e.g. eth0, eth1, eth2).
+
+Ensure the interface exists and the container has permission
+to access it.
+
+### SIP Port
+
+Default:
+
+    5060
+
+Can be modified in source if required.
+
+---
+
+## Requirements
+
+- Linux host
+- Docker
+- Network interface with SIP traffic visibility
+- Root / privileged container permissions
+- libpcap-compatible environment
+
+---
+
+## Architecture Overview
+
+Core modules:
+
+    extractSIPMessage.ts     Detect SIP payloads
+    reassembleTCPStream.ts   Reconstruct fragmented TCP packets
+    packetCapture.ts         Manage capture lifecycle
+    formatSIPMessage.ts      Format readable output
+
+These components are fully unit-tested and designed for safe
+operation under malformed or incomplete packet conditions.
+
+---
+
+## Use Cases
+
+Typical scenarios include:
+
+- monitoring SIP registrations on VoIP gateways
+- debugging endpoint registration failures
+- detecting unexpected SIP activity
+- feeding SIP metadata into telemetry pipelines
+- integrating SIP events into MQTT / Sparkplug infrastructure
+
+---
+
+## Reliability
+
+Core parsing and stream handling logic is protected by:
+
+- 100% statement coverage
+- 100% branch coverage
+- malformed packet regression tests
+- async processing validation
+
+This helps ensure stable operation in real network environments.
+
+---
+
+## Deployment Notes
+
+If redeploying:
+
+Stop container:
+
+    sudo docker stop sip-traffic-listener
+
+Remove container:
+
+    sudo docker rm sip-traffic-listener
+
+Reload image:
+
+    sudo docker load -i listener_image.tar
+
+Restart container using the run command above.
+
+---
+
+## Roadmap
+
+Potential future improvements:
+
+- configurable capture interface via environment variable
+- configurable SIP ports
+- JSON output mode
+- PCAP replay support
+- MQTT publishing integration
